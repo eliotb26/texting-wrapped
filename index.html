@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texting Wrapped Studio</title>
+<style>
+  :root {
+    --ink: #1d1d1f;
+    --gray: #6e6e73;
+    --quiet: #e8e8ed;
+    --blue: #0071e3;
+    --surface: #ffffff;
+    --panel: #f5f5f7;
+    --font: -apple-system, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--surface); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  main { max-width: 1120px; margin: 0 auto; padding: 48px 16px 64px; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 56px; align-items: start; }
+  .stage { position: sticky; top: 24px; }
+  canvas { width: 100%; height: auto; aspect-ratio: 9 / 16; border-radius: 28px; box-shadow: 0 30px 80px rgba(0,0,0,.14), 0 0 0 1px rgba(0,0,0,.06); display: block; background: var(--surface); }
+  .kicker { font-size: 15px; font-weight: 600; color: var(--blue); }
+  h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1; letter-spacing: -0.045em; margin-top: 10px; }
+  h1 span { color: var(--gray); display: block; }
+  .lede { font-size: 19px; line-height: 1.45; color: var(--gray); margin-top: 18px; max-width: 30em; }
+  ol { list-style: none; padding: 0; margin-top: 40px; display: grid; gap: 14px; counter-reset: step; }
+  li { background: var(--panel); border-radius: 20px; padding: 22px 24px; counter-increment: step; }
+  li h2 { font-size: 19px; letter-spacing: -0.02em; display: flex; gap: 12px; align-items: baseline; }
+  li h2::before { content: counter(step); color: var(--blue); font-variant-numeric: tabular-nums; }
+  li p { font-size: 15px; line-height: 1.5; color: var(--gray); margin-top: 6px; }
+  code { font: 14px ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); padding: 2px 6px; border-radius: 6px; color: var(--ink); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  button, label.btn { font: 600 15px var(--font); border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; background: var(--ink); color: #fff; transition: transform var(--duration-fast, 150ms) var(--ease-out-expo), opacity 150ms; }
+  button.secondary, label.btn.secondary { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--quiet); }
+  button.primary { background: var(--blue); }
+  button:hover, label.btn:hover { transform: translateY(-1px); }
+  button:active, label.btn:active { transform: translateY(1px); }
+  button:focus-visible, label.btn:focus-within { outline: 3px solid color-mix(in srgb, var(--blue) 45%, transparent); outline-offset: 2px; }
+  button:disabled { opacity: .4; cursor: default; transform: none; }
+  input[type=file] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .status { font-size: 14px; color: var(--gray); margin-top: 12px; min-height: 1.4em; }
+  .status b { color: var(--ink); }
+  .drop { outline: 2px dashed var(--blue); outline-offset: 6px; }
+  .subscribe { width: 100%; height: 150px; border: 0; margin-top: 12px; background: var(--surface); border-radius: 14px; }
+  .privacy { font-size: 13px; color: var(--gray); margin-top: 28px; line-height: 1.5; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; gap: 32px; } .stage { position: static; max-width: 360px; margin: 0 auto; } }
+  @media (prefers-reduced-motion: reduce) { button, label.btn { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="stage" aria-label="Preview">
+    <canvas id="c" width="1080" height="1920" aria-label="Your Texting Wrapped video preview"></canvas>
+  </section>
+  <section aria-labelledby="title">
+    <div class="kicker">The Mutuals · Texting Wrapped</div>
+    <h1 id="title">Your year in texts.<span>As a video.</span></h1>
+    <p class="lede">Turn your <code>wrapped_stats.json</code> into a Wrapped-style story video with music, plus a cover and a card for every stat. It all runs in this page. Nothing is uploaded.</p>
+    <ol>
+      <li>
+        <h2>Load your stats</h2>
+        <p>Run <code>wrapped.py</code> and this page opens with your numbers. Or drop <code>wrapped_stats.json</code> anywhere on it. Until then, you're watching demo numbers.</p>
+        <div class="row"><label class="btn secondary">Choose file<input id="file" type="file" accept=".json,application/json"></label></div>
+        <p class="status" id="loaded">Showing <b>demo data</b>.</p>
+      </li>
+      <li>
+        <h2>Watch it</h2>
+        <p>About 30 seconds, with its own soundtrack. Sound on.</p>
+        <div class="row"><button id="play" class="secondary">Play</button></div>
+      </li>
+      <li>
+        <h2>Save it</h2>
+        <p>The video records in real time, so keep this tab in front while it plays. The cards download as 1080×1920 PNGs, ready for Stories.</p>
+        <div class="row"><button id="record" class="primary">Record video</button><button id="cards" class="secondary">Download cards</button></div>
+        <p class="status" id="saveStatus"></p>
+      </li>
+      <li>
+        <h2>Get the next one</h2>
+        <p>Every week I share one build like this in The Mutuals: something you can run on your own data in 20 minutes. Optional, free.</p>
+        <iframe class="subscribe" src="https://themutuals.substack.com/embed" title="Subscribe to The Mutuals" loading="lazy"></iframe>
+      </li>
+    </ol>
+    <p class="privacy">Names never appear: your top five are drawn as blurred placeholder names. The stats have no names and no message text in them, and they never leave this page. The subscribe box is Substack's own form and only sees what you type into it.</p>
+  </section>
+</main>
+<script>
+"use strict";
+const W = 1080, H = 1920, FPS = 30, BPM = 120, BEAT = 60 / BPM;
+const COLOR = { ink: "#1d1d1f", gray: "#6e6e73", quiet: "#e8e8ed", blue: "#0071e3", white: "#ffffff", paleBlue: "rgba(255,255,255,.62)" };
+const FONT = '-apple-system, "SF Pro Display", system-ui, sans-serif';
+const FAKE_NAMES = ["Alexandra M.", "Jordan K.", "Sam R.", "Priya D.", "Chris W."];
+const SCENE_BEATS = 6;            // every scene is 3 s, cuts land on the beat
+const DEMO = {
+  window: { from: "2025-10-28", to: "2026-10-27" }, messages_total: 18432, sent: 8120, received: 10312,
+  people_texted: 143, group_chats_active: 21, group_share_pct: 34.2, busiest_hour: 22,
+  sent_by_hour: [210, 120, 60, 22, 8, 4, 10, 60, 180, 310, 360, 400, 470, 430, 410, 420, 460, 520, 560, 610, 680, 700, 720, 480],
+  busiest_weekday: "Saturday", late_night_pct: 27.4, i_start_pct: 58.1, my_median_reply_min: 3.4, their_median_reply_min: 7.9,
+  longest_streak_days: 64, busiest_day_count: 412, reactions_sent: { Laughed: 1204, Loved: 811, Liked: 402 },
+  top_people: [{ messages: 3400 }, { messages: 2210 }, { messages: 1660 }, { messages: 1100 }, { messages: 870 }], top5_share_pct: 50.1,
+};
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const CAN_BLUR = typeof ctx.filter === "string";
+let stats = DEMO;
+let scenes = buildScenes(stats);
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 4);
+const easeExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * clamp(x)));
+const fmt = (n) => Math.round(n).toLocaleString("en-US");
+const hour12 = (h) => `${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
+const minutes = (m) => (m < 1 ? `${Math.round(m * 60)}s` : m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`);
+const year = () => (stats.window && stats.window.to ? stats.window.to.slice(0, 4) : String(new Date().getFullYear()));
+
+function font(weight, size) { return `${weight} ${size}px ${FONT}`; }
+
+function text(str, x, y, { size = 60, weight = 700, color = COLOR.ink, align = "left", track = -0.03, alpha = 1 } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = font(weight, size);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "alphabetic";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${track * size}px`;
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+
+function wrap(str, maxWidth, size, weight = 700) {
+  ctx.save();
+  ctx.font = font(weight, size);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${-0.03 * size}px`;
+  const words = str.split(" "), lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; } else line = test;
+  }
+  if (line) lines.push(line);
+  ctx.restore();
+  return lines;
+}
+
+function pill(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, Math.max(h, w), h, h / 2);
+  ctx.fill();
+}
+
+// Each element enters on its own beat offset: rises 50px and fades in.
+function enter(local, beatOffset, dur = 0.55) {
+  const p = easeExpo((local - beatOffset * BEAT) / dur);
+  return { a: p, dy: (1 - p) * 50 };
+}
+
+// ---------- scene layout ----------
+// A scene draws itself at local time `l` (0..3 s). `bg` decides the color block, Wrapped-style.
+function frame(bg, kicker, l) {
+  const fg = bg === "blue" ? COLOR.white : COLOR.ink;
+  ctx.fillStyle = bg === "blue" ? COLOR.blue : COLOR.white;
+  ctx.fillRect(0, 0, W, H);
+  const k = enter(l, 0, 0.4);
+  text(kicker, 96, 230 + k.dy, { size: 40, weight: 600, color: bg === "blue" ? COLOR.paleBlue : COLOR.blue, track: -0.01, alpha: k.a });
+  text(`My Texting Wrapped · ${year()}`, 96, H - 110, { size: 30, weight: 500, color: bg === "blue" ? COLOR.paleBlue : COLOR.gray, track: 0 });
+  text("The Mutuals", W - 96, H - 110, { size: 30, weight: 700, color: fg, align: "right", track: -0.01 });
+  return fg;
+}
+
+function sentence(lines, sub, l, beat, fg, y0, bg) {
+  let y = y0;
+  const e = enter(l, beat);
+  for (const line of wrap(lines, W - 192, 76)) { text(line, 96, y + e.dy, { size: 76, color: fg, alpha: e.a }); y += 86; }
+  if (sub) {
+    const s = enter(l, beat + 1);
+    y += 24;
+    for (const line of wrap(sub, W - 192, 44, 500)) {
+      text(line, 96, y + s.dy, { size: 44, weight: 500, color: bg === "blue" ? COLOR.paleBlue : COLOR.gray, track: -0.02, alpha: s.a });
+      y += 56;
+    }
+  }
+}
+
+function countUp(value, l, start = 0.25, dur = 1.4) { return value * easeExpo((l - start) / dur); }
+
+function bigNumber(str, y, l, fg, size = 300) {
+  const e = enter(l, 0.5);
+  let s = size;
+  ctx.save(); ctx.font = font(800, s); if ("letterSpacing" in ctx) ctx.letterSpacing = `${-0.05 * s}px`;
+  while (ctx.measureText(str).width > W - 180 && s > 120) { s -= 10; ctx.font = font(800, s); if ("letterSpacing" in ctx) ctx.letterSpacing = `${-0.05 * s}px`; }
+  ctx.restore();
+  text(str, 90, y + e.dy, { size: s, weight: 800, color: fg, track: -0.05, alpha: e.a });
+}
+
+function buildScenes(s) {
+  const list = [];
+  list.push({ name: "cover", draw(l) {
+    ctx.fillStyle = COLOR.blue; ctx.fillRect(0, 0, W, H);
+    const words = ["Your", year(), "in", "texts."];
+    words.forEach((w, i) => {
+      const e = enter(l, 0.5 + i * 0.5, 0.5);
+      text(w, 90, 900 + i * 240 + e.dy, { size: 230, weight: 800, color: COLOR.white, track: -0.05, alpha: e.a });
+    });
+    const k = enter(l, 0, 0.4);
+    text("Texting Wrapped", 96, 300 + k.dy, { size: 48, weight: 700, color: COLOR.white, track: -0.02, alpha: k.a });
+    text("Names blurred. No message read.", 96, 365 + k.dy, { size: 36, weight: 500, color: COLOR.paleBlue, track: -0.01, alpha: k.a });
+    text("The Mutuals", W - 96, H - 110, { size: 30, weight: 700, color: COLOR.white, align: "right", track: -0.01 });
+  } });
+
+  list.push({ name: "total", draw(l) {
+    const fg = frame("white", "My year in texts", l);
+    bigNumber(fmt(countUp(s.messages_total, l)), 980, l, fg);
+    sentence("messages in 12 months.", `${fmt(s.sent)} sent, ${fmt(s.received)} received, ${fmt(s.people_texted)} people.`, l, 1.5, fg, 1140, "white");
+  } });
+
+  list.push({ name: "first", draw(l) {
+    const fg = frame("blue", "Who texts first", l);
+    const pct = s.i_start_pct;
+    const p = easeExpo((l - 0.25) / 1.4);
+    // A ring that fills to the share of conversations I started.
+    ctx.save();
+    ctx.lineWidth = 46; ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(255,255,255,.22)";
+    ctx.beginPath(); ctx.arc(W / 2, 760, 300, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = COLOR.white;
+    ctx.beginPath(); ctx.arc(W / 2, 760, 300, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (pct / 100) * p); ctx.stroke();
+    ctx.restore();
+    text(`${Math.round(pct * p)}%`, W / 2, 820, { size: 190, weight: 800, color: fg, align: "center", track: -0.05 });
+    sentence(pct >= 50 ? "of conversations, I started." : "of conversations, I started. Usually, they text first.",
+      "A conversation starts after 6 quiet hours.", l, 1.5, fg, 1300, "blue");
+  } });
+
+  if (s.busiest_hour != null && Array.isArray(s.sent_by_hour)) list.push({ name: "hour", draw(l) {
+    const fg = frame("white", "Busiest hour", l);
+    const top = Math.max(...s.sent_by_hour) || 1, bw = (W - 192 - 23 * 10) / 24, base = 1060;
+    s.sent_by_hour.forEach((v, h) => {
+      const p = easeOut((l - 0.3 - h * 0.035) / 0.6);
+      const bh = Math.max(14, 520 * (v / top)) * p;
+      const barH = Math.max(bw, bh);
+      ctx.fillStyle = h === s.busiest_hour ? COLOR.blue : COLOR.quiet;
+      ctx.beginPath(); ctx.roundRect(96 + h * (bw + 10), base - barH, bw, barH, bw / 2); ctx.fill();
+    });
+    ["12 am", "6 am", "12 pm", "6 pm", "11 pm"].forEach((lab, i) => {
+      text(lab, 96 + [0, 6, 12, 18, 23][i] * (bw + 10) + (i === 4 ? bw : 0), base + 60, { size: 28, weight: 500, color: COLOR.gray, align: i === 4 ? "right" : "left", track: 0 });
+    });
+    sentence(`${hour12(s.busiest_hour)} is when I text most.`,
+      `${Math.round(s.late_night_pct)}% of my texts go out after 10 pm. ${s.busiest_weekday} is my busiest day.`, l, 2, fg, 1260, "white");
+  } });
+
+  if (s.top_people && s.top_people.length) list.push({ name: "top5", draw(l) {
+    const fg = frame("white", "My top 5", l);
+    const most = s.top_people[0].messages || 1;
+    s.top_people.slice(0, 5).forEach((p, i) => {
+      const e = enter(l, 0.5 + i * 0.5, 0.5), y = 430 + i * 150;
+      ctx.save(); ctx.globalAlpha = e.a;
+      if (CAN_BLUR) { ctx.filter = "blur(14px)"; text(FAKE_NAMES[i], 96, y + 52 + e.dy, { size: 46, weight: 700, color: fg }); ctx.filter = "none"; }
+      else pill(96, y + 14 + e.dy, 260, 44, COLOR.quiet);   // no canvas blur: a redaction bar instead
+      const bw = Math.max(40, 470 * (p.messages / most)) * easeOut((l - 0.6 - i * BEAT) / 0.7);
+      pill(400, y + 12 + e.dy, bw, 50, i === 0 ? COLOR.blue : COLOR.quiet);
+      text(fmt(p.messages), 400 + Math.max(bw, 50) + 22, y + 52 + e.dy, { size: 40, weight: 600, color: fg, track: -0.01 });
+      ctx.restore();
+    });
+    sentence(`${Math.round(s.top5_share_pct)}% of my texts go to five people.`, "Names blurred.", l, 3.5, fg, 1300, "white");
+  } });
+
+  if (s.longest_streak_days) list.push({ name: "streak", draw(l) {
+    const fg = frame("blue", "Longest streak", l);
+    bigNumber(fmt(countUp(s.longest_streak_days, l)), 760, l, fg, 360);
+    // A calendar strip: one dot per day of the streak, filling in.
+    const n = Math.min(s.longest_streak_days, 70), cols = 14, size = 44, gap = 22;
+    for (let i = 0; i < n; i++) {
+      const on = easeOut((l - 0.4 - i * 0.02) / 0.3);
+      const x = 96 + (i % cols) * (size + gap), y = 880 + Math.floor(i / cols) * (size + gap);
+      ctx.fillStyle = `rgba(255,255,255,${0.18 + 0.82 * on})`;
+      ctx.beginPath(); ctx.roundRect(x, y, size, size, 12); ctx.fill();
+    }
+    sentence("days in a row texting the same person.", "Not one day missed.", l, 2, fg, 1340, "blue");
+  } });
+
+  if (s.my_median_reply_min != null && s.their_median_reply_min != null) list.push({ name: "reply", draw(l) {
+    const fg = frame("white", "Reply speed", l);
+    const a = enter(l, 0.5), b = enter(l, 1);
+    text(minutes(s.my_median_reply_min), 96, 860 + a.dy, { size: 150, weight: 800, color: COLOR.blue, track: -0.05, alpha: a.a });
+    text("my typical reply", 100, 930 + a.dy, { size: 40, weight: 500, color: COLOR.gray, track: -0.01, alpha: a.a });
+    text(minutes(s.their_median_reply_min), 96, 1150 + b.dy, { size: 150, weight: 800, color: fg, track: -0.05, alpha: b.a });
+    text("theirs", 100, 1220 + b.dy, { size: 40, weight: 500, color: COLOR.gray, track: -0.01, alpha: b.a });
+    sentence(s.my_median_reply_min < s.their_median_reply_min ? "I reply faster than they do." : "They reply faster than I do.",
+      "Median time to answer a text, within 12 hours.", l, 2, fg, 1400, "white");
+  } });
+
+  const reactions = Object.entries(s.reactions_sent || {});
+  if (reactions.length) list.push({ name: "reaction", draw(l) {
+    const fg = frame("blue", "Most-used reaction", l);
+    const [name, count] = reactions[0];
+    bigNumber(fmt(countUp(count, l)), 900, l, fg);
+    sentence(`times I hit “${name}.”`, "That's my most-used tapback.", l, 1.5, fg, 1080, "blue");
+  } });
+
+  list.push({ name: "outro", draw(l) {
+    ctx.fillStyle = COLOR.white; ctx.fillRect(0, 0, W, H);
+    const k = enter(l, 0, 0.4);
+    text("Your turn", 96, 230 + k.dy, { size: 40, weight: 600, color: COLOR.blue, track: -0.01, alpha: k.a });
+    ["Make your own", "Texting", "Wrapped."].forEach((w, i) => {
+      const e = enter(l, 0.5 + i * 0.5, 0.5);
+      text(w, 90, 720 + i * 190 + e.dy, { size: i ? 200 : 110, weight: 800, color: i === 2 ? COLOR.blue : COLOR.ink, track: -0.05, alpha: e.a });
+    });
+    const s2 = enter(l, 2.5);
+    text("20 minutes, free, on your Mac.", 96, 1240 + s2.dy, { size: 50, weight: 600, color: COLOR.ink, track: -0.02, alpha: s2.a });
+    text("No message text is ever read.", 96, 1310 + s2.dy, { size: 50, weight: 600, color: COLOR.gray, track: -0.02, alpha: s2.a });
+    const u = enter(l, 3.5);
+    ctx.save(); ctx.globalAlpha = u.a;
+    pill(96, 1440 + u.dy, 700, 96, COLOR.blue);
+    text("themutuals.substack.com", 140, 1503 + u.dy, { size: 44, weight: 700, color: COLOR.white, track: -0.02 });
+    ctx.restore();
+    text("The Mutuals", W - 96, H - 110, { size: 30, weight: 700, color: COLOR.ink, align: "right", track: -0.01 });
+  } });
+  return list;
+}
+
+const SCENE_LEN = SCENE_BEATS * BEAT;
+const OUTRO_LEN = 8 * BEAT;
+function duration() { return (scenes.length - 1) * SCENE_LEN + OUTRO_LEN; }
+
+// The whole video is a pure function of t, so the preview, the recorder and a frame-by-frame render all match.
+function renderAt(t) {
+  const i = Math.min(scenes.length - 1, Math.floor(t / SCENE_LEN));
+  const local = t - i * SCENE_LEN;
+  scenes[i].draw(local);
+  // A quick flash of white on every cut, half a beat long.
+  const flash = i > 0 ? 1 - clamp(local / (BEAT * 0.5)) : 0;
+  const end = clamp((t - (duration() - 0.6)) / 0.6);
+  if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${0.85 * flash * flash})`; ctx.fillRect(0, 0, W, H); }
+  if (end > 0) { ctx.fillStyle = `rgba(255,255,255,${end})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- the soundtrack: 120 BPM, Am F C G, everything on the beat grid ----------
+function seeded(seed) { return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296); }
+const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+async function makeScore() {
+  const dur = duration() + 1, sr = 48000;
+  const ac = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
+  const master = ac.createGain(); master.gain.value = 0.85;
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+  master.connect(comp).connect(ac.destination);
+  const rnd = seeded(7);
+  const noise = ac.createBuffer(1, sr, sr);
+  noise.getChannelData(0).forEach((_, i, d) => (d[i] = rnd() * 2 - 1));
+
+  function tone(freq, at, len, { type = "sine", gain = 0.2, attack = 0.005, decay = 2, pan = 0 } = {}) {
+    const o = ac.createOscillator(), g = ac.createGain(), p = ac.createStereoPanner();
+    o.type = type; o.frequency.value = freq; p.pan.value = pan;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + attack);
+    g.gain.setTargetAtTime(0, at + attack, len / decay);
+    o.connect(g).connect(p).connect(master);
+    o.start(at); o.stop(at + len + 0.5);
+  }
+  function piano(m, at, len, gain = 0.1, pan = 0) {
+    [1, 2, 3, 4].forEach((k, j) => tone(midiHz(m) * k, at, len / (1 + j * 0.6), { gain: gain * [1, 0.4, 0.18, 0.08][j], decay: 3 + j, pan }));
+  }
+  function pluck(m, at, gain = 0.07, pan = 0) { tone(midiHz(m), at, 0.5, { type: "triangle", gain, decay: 6, pan }); }
+  function bell(m, at, gain = 0.06) { tone(midiHz(m), at, 2, { gain, decay: 3 }); tone(midiHz(m) * 2.76, at, 0.8, { gain: gain * 0.3, decay: 4 }); }
+  function kick(at, gain = 0.6) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.setValueAtTime(130, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.12);
+    g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.4);
+    o.connect(g).connect(master); o.start(at); o.stop(at + 0.45);
+  }
+  function hat(at, gain = 0.05, len = 0.05) {
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noise; f.type = "highpass"; f.frequency.value = 7500;
+    g.gain.setValueAtTime(gain, at); g.gain.exponentialRampToValueAtTime(0.001, at + len);
+    src.connect(f).connect(g).connect(master); src.start(at, rnd() * 0.5, len + 0.02);
+  }
+
+  const chords = [[57, 60, 64], [53, 57, 60], [48, 55, 64], [55, 59, 62]];
+  const bars = Math.ceil(dur / (4 * BEAT));
+  for (let b = 0; b < bars; b++) {
+    const at = b * 4 * BEAT, ch = chords[b % 4], last = at >= duration() - OUTRO_LEN + 2 * BEAT;
+    ch.forEach((n, j) => piano(n + 12, at + j * 0.012, last ? 4 : 2.4, 0.09, (j - 1) * 0.25));
+    tone(midiHz(ch[0] - 12), at, 1.6, { gain: 0.16, decay: 2.5 });
+    if (at >= SCENE_LEN && !last) {
+      const arp = [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[1] + 24];
+      for (let e = 0; e < 8; e++) pluck(arp[e % 4], at + e * BEAT / 2, e % 2 ? 0.035 : 0.05, e % 2 ? 0.3 : -0.3);
+    }
+  }
+  // Drums from the first stat to the outro; a bell on every cut.
+  const drumsEnd = duration() - OUTRO_LEN;
+  for (let t = SCENE_LEN; t < drumsEnd; t += BEAT) { kick(t, 0.5); hat(t + BEAT / 2); }
+  kick(drumsEnd, 0.7);
+  for (let i = 1; i < scenes.length; i++) bell(84 + (i % 3) * 3, i * SCENE_LEN, 0.05);
+  [0.5, 1, 1.5, 2].forEach((t, i) => pluck([76, 79, 81, 84][i], t, 0.06));
+  return ac.startRendering();
+}
+
+function wavBytes(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF"); out.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVEfmt ");
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true);
+  out.setUint32(24, buf.sampleRate, true); out.setUint32(28, buf.sampleRate * ch * 2, true);
+  out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); str(36, "data"); out.setUint32(40, n * ch * 2, true);
+  const data = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) out.setInt16(o, clamp(data[c][i], -1, 1) * 0x7fff, true);
+  return new Uint8Array(out.buffer);
+}
+
+// ---------- playback, recording, cards ----------
+let audioCtx = null, playing = null;
+
+async function play({ record = false } = {}) {
+  stop();
+  audioCtx = audioCtx || new AudioContext();
+  await audioCtx.resume();
+  const buffer = await makeScore();
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(audioCtx.destination);
+  let recorder = null, chunks = [];
+  if (record) {
+    const dest = audioCtx.createMediaStreamDestination();
+    src.connect(dest);
+    const stream = new MediaStream([...canvas.captureStream(FPS).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+    const type = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+    recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 12e6 });
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = () => {
+      const ext = type.startsWith("video/mp4") ? "mp4" : "webm";
+      download(new Blob(chunks, { type }), `texting-wrapped-${year()}.${ext}`);
+      setStatus(`Saved <b>texting-wrapped-${year()}.${ext}</b>.`);
+    };
+    renderAt(0);
+    recorder.start();
+    setStatus("Recording. Keep this tab in front…");
+  }
+  const t0 = audioCtx.currentTime + 0.05;
+  src.start(t0);
+  const end = duration();
+  playing = { src, recorder };
+  const tick = () => {
+    if (!playing) return;
+    const t = audioCtx.currentTime - t0;
+    renderAt(clamp(t, 0, end));
+    if (t < end) requestAnimationFrame(tick);
+    else { stop(); renderAt(scenes.length > 1 ? SCENE_LEN * 0.9 : 0); }
+  };
+  requestAnimationFrame(tick);
+}
+
+function stop() {
+  if (!playing) return;
+  const { src, recorder } = playing;
+  playing = null;
+  try { src.stop(); } catch (e) { /* already stopped */ }
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// The settled frame of each scene: everything has landed, before the next cut.
+function cardTime(i) { return i * SCENE_LEN + (i === scenes.length - 1 ? OUTRO_LEN - 0.7 : SCENE_LEN - 0.05); }
+
+async function downloadCards() {
+  stop();
+  for (let i = 0; i < scenes.length; i++) {
+    renderAt(cardTime(i));
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+    download(blob, `wrapped-${String(i + 1).padStart(2, "0")}-${scenes[i].name}.png`);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  setStatus(`Saved <b>${scenes.length} cards</b>.`);
+}
+
+function setStatus(html) { document.getElementById("saveStatus").innerHTML = html; }
+
+function loadStats(obj, label) {
+  if (!obj || typeof obj.messages_total !== "number" || typeof obj.i_start_pct !== "number") {
+    document.getElementById("loaded").innerHTML = "That file doesn't look like <b>wrapped_stats.json</b>. Run <code>python3 wrapped.py</code> to make one.";
+    return false;
+  }
+  stop();
+  stats = obj;
+  scenes = buildScenes(stats);
+  renderAt(cardTime(1));
+  document.getElementById("loaded").innerHTML = `Loaded <b>${label}</b>: ${fmt(obj.messages_total)} messages.`;
+  return true;
+}
+
+async function readFile(file) {
+  try { loadStats(JSON.parse(await file.text()), file.name); }
+  catch (e) { document.getElementById("loaded").textContent = `Couldn't read ${file.name}: ${e.message}`; }
+}
+
+document.getElementById("file").addEventListener("change", (e) => e.target.files[0] && readFile(e.target.files[0]));
+document.getElementById("play").addEventListener("click", () => play());
+document.getElementById("record").addEventListener("click", () => play({ record: true }));
+document.getElementById("cards").addEventListener("click", downloadCards);
+addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("drop"); });
+addEventListener("dragleave", () => document.body.classList.remove("drop"));
+addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drop"); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+// Hooks for a frame-exact offline render (render.cjs).
+window.wrapped = {
+  load: (obj) => loadStats(obj, "stats"),
+  renderAt, duration, cardTime, FPS,
+  sceneNames: () => scenes.map((s) => s.name),
+  frame: (t, q = 0.92) => { renderAt(t); return canvas.toDataURL("image/jpeg", q); },
+  card: (i) => { renderAt(cardTime(i)); return canvas.toDataURL("image/png"); },
+  wav: async () => { const b = wavBytes(await makeScore()); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); },
+};
+
+// wrapped.py opens this page with the counts in the #fragment, which is never sent to any server.
+function statsFromHash() {
+  const m = /^#s=([A-Za-z0-9_-]+)$/.exec(location.hash);
+  if (!m) return null;
+  history.replaceState(null, "", location.pathname);   // don't leave your stats in a link you might share
+  try {
+    const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
+  } catch (e) {
+    document.getElementById("loaded").textContent = `Couldn't read the stats in the link: ${e.message}`;
+    return null;
+  }
+}
+
+document.fonts.ready.then(() => {
+  const fromLink = statsFromHash();
+  if (!(fromLink && loadStats(fromLink, "your stats"))) renderAt(cardTime(0));
+});
+</script>
+</body>
+</html>
