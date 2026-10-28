@@ -1,25 +1,19 @@
-# Texting Wrapped
+# iMessage Wrapped
 
-A Spotify-Wrapped-style year in texts, made from your Mac's iMessage database. It counts and never reads: no message text is opened, and your top five appear as blurred placeholder names.
+A Spotify-Wrapped-style video of your year in texts, made on your Mac. **Use it at [eliotcbrown.com/imessage-wrapped](https://eliotcbrown.com/imessage-wrapped/).**
 
-## Make yours (about 2 minutes, free, Mac only)
+It counts, it never reads: timestamps, who sent each message, 1:1 or group, and tapback reactions. No message text is opened, and the stats it shares have no names.
 
-1. Give Terminal Full Disk Access: System Settings → Privacy & Security → Full Disk Access → Terminal. Quit and reopen Terminal.
-2. Paste this into Terminal:
-   ```
-   mkdir -p ~/texting-wrapped && cd ~/texting-wrapped && curl -fsSL https://eliotb26.github.io/texting-wrapped/wrapped.py -o wrapped.py && python3 wrapped.py
-   ```
-3. Your Wrapped opens in the browser. Play it, **Record video**, or **Download cards**. Everything runs in your browser; your numbers travel in the link's `#fragment`, which is never sent to a server.
+Make yours (Terminal needs Full Disk Access):
 
-It writes `wrapped_stats.json` (counts only, no names) and `wrapped_private.json` (who Person 1 to 5 are; keep that one to yourself).
-
-## Use Claude Code?
-
-Install the skill and just say "make my texting wrapped":
 ```
-mkdir -p ~/.claude/skills/texting-wrapped && curl -fsSL https://eliotb26.github.io/texting-wrapped/skill/texting-wrapped/SKILL.md -o ~/.claude/skills/texting-wrapped/SKILL.md
+mkdir -p ~/imessage-wrapped && cd ~/imessage-wrapped && curl -fsSL https://eliotcbrown.com/imessage-wrapped/wrapped.py -o wrapped.py && python3 wrapped.py
 ```
 
-What it counts for the last 12 months: total texts, who starts conversations, your busiest hour and day, your top five people, your longest daily streak, your reply speed against theirs, and your most-used reaction.
+Claude Code skill:
 
-From [The Mutuals](https://themutuals.substack.com).
+```
+mkdir -p ~/.claude/skills/imessage-wrapped && curl -fsSL https://eliotcbrown.com/imessage-wrapped/skill/imessage-wrapped/SKILL.md -o ~/.claude/skills/imessage-wrapped/SKILL.md
+```
+
+Files: `wrapped.py` (the counter), `studio.html` (the video page), `skill/` (the Claude Code skill).
